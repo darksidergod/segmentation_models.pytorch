@@ -4,6 +4,33 @@ import torch.nn.functional as F
 
 from ..base.model import Model
 
+class Attn_block(nn.Module):
+    def __init__(self, in_channels, F_l, out_channels):
+        super(Attn_block, self).__init__()
+        self.W_g = nn.Sequential(
+            nn.Conv2d(F_l, out_channels, kernel_size=(1, 1),
+                              stride=1, padding=0, bias=False),
+            nn.GroupNorm(32, out_channels),
+        )
+        self.W_xa = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=(1, 1),
+                              stride=1, padding=0, bias=False),
+            nn.GroupNorm(32, out_channels),
+        )
+        self.psi = nn.Sequential(
+            nn.Conv2d(out_channels, 1, kernel_size=(1, 1),
+                              stride=1, padding=0, bias=False),
+            nn.Sigmoid()
+        )
+        self.relu = nn.ReLU()
+
+    def forward(self, g, xa):
+        g = self.W_g(g)
+        xa = F.interpolate(xa, scale_factor=2, mode='nearest')
+        xa = self.W_xa(xa)
+        psi =  self.psi(self.relu(xa+g))
+        return psi*xa
+
 
 class Conv3x3GNReLU(nn.Module):
     def __init__(self, in_channels, out_channels, upsample=False):
@@ -82,6 +109,11 @@ class FPNDecoder(Model):
         self.s3 = SegmentationBlock(pyramid_channels, segmentation_channels, n_upsamples=1)
         self.s2 = SegmentationBlock(pyramid_channels, segmentation_channels, n_upsamples=0)
 
+        self.attn4 = Attn_block(pyramid_channels, encoder_channels[1], pyramid_channels)
+        self.attn3 = Attn_block(pyramid_channels, encoder_channels[2], pyramid_channels)
+        self.attn2 = Attn_block(pyramid_channels, encoder_channels[3], pyramid_channels)
+
+
         self.dropout = nn.Dropout2d(p=dropout, inplace=True)
         self.final_conv = nn.Conv2d(segmentation_channels, final_channels, kernel_size=1, padding=0)
 
@@ -95,10 +127,14 @@ class FPNDecoder(Model):
         p3 = self.p3([p4, c3])
         p2 = self.p2([p3, c2])
 
+        p4_ = self.attn4(c4, p5)
+        p3_ = self.attn3(c3, p4)
+        p2_ = self.attn2(c2, p3)
+
         s5 = self.s5(p5)
-        s4 = self.s4(p4)
-        s3 = self.s3(p3)
-        s2 = self.s2(p2)
+        s4 = self.s4(p4_)
+        s3 = self.s3(p3_)
+        s2 = self.s2(p2_)
 
         x = s5 + s4 + s3 + s2
 

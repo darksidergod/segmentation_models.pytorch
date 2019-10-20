@@ -3,8 +3,8 @@ from ..base import EncoderDecoder
 from ..encoders import get_encoder
 
 
-class FPN(EncoderDecoder):
-    """FPN_ is a fully convolution neural network for image semantic segmentation
+class FPN_attn(EncoderDecoder):
+    """FPN_attn is modified FPN network. FPN is a fully convolution neural network for image semantic segmentation
     Args:
         encoder_name: name of classification model (without last dense layers) used as feature
                 extractor to build segmentation model.
@@ -19,7 +19,7 @@ class FPN(EncoderDecoder):
             (default is 4 to preserve input -> output spatial shape identity)
 
     Returns:
-        ``torch.nn.Module``: **FPN**
+        ``torch.nn.Module``: **FPN_attn**
 
     .. _FPN:
         http://presentations.cocodataset.org/COCO17-Stuff-FAIR.pdf
@@ -53,4 +53,4 @@ class FPN(EncoderDecoder):
 
         super().__init__(encoder, decoder, activation)
 
-        self.name = 'fpn-{}'.format(encoder_name)
+        self.name = 'fpn-attn-{}'.format(encoder_name)
